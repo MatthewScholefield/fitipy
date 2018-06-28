@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='fitipy',
-    version='0.1.0',
+    version='0.1.1',
     description='A simple filesystem interface',
     url='http://github.com/MatthewScholefield/fitipy',
     author='Matthew Scholefield',
