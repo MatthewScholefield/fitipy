@@ -39,10 +39,10 @@ class FitiReader:
         return modifier(content)
 
     def lines(self, typ: type = str) -> list:
-        return self.read([], lambda x: [typ(i) for i in x.split('\n')])
+        return self.read([], lambda x: [typ(i) for i in bool(x) * x.split('\n')])
 
     def set(self, typ: type = str) -> set:
-        return self.read(set(), lambda x: {typ(i) for i in x.split('\n')})
+        return self.read(set(), lambda x: {typ(i) for i in bool(x) * x.split('\n')})
 
     def dict(self) -> dict:
         return self.read({}, json.loads)
