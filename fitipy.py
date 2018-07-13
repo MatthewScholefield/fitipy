@@ -8,7 +8,9 @@ from typing import Callable, Any
 class FitiWriter:
     def __init__(self, *path: str):
         self.filename = join(*path)
-        makedirs(dirname(self.filename), exist_ok=True)
+        parent = dirname(self.filename)
+        if parent:
+            makedirs(parent, exist_ok=True)
 
     def write(self, value: Any, modifier: Callable = lambda x: x):
         with open(self.filename, 'w') as f:
