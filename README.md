@@ -1,8 +1,8 @@
 # Fitipy
 
-This small python module is used to eliminate checks if a file exists and casts
-to and from a string. It applies a [redis](https://redis.io)-style interface 
-to the filesystem.
+This small python module used for automatic synchronization of a Python data type
+with a file. Typically, this is useful in places where a small amount of data is
+stored.
 
 ## Installation
 
@@ -13,16 +13,13 @@ pip3 install fitipy
 ## Example
 
 ```python
-from fitipy import Fitipy
+from fitipy import FSet
 
-fi = Fitipy('data')
-users = fi.read('users.txt').set()  # Returns Python set object
+users = FSet('data', 'users.txt')
 users.add('sue')
-fi.write('users.txt').set(users)
-
 ```
 
-Compared to the raw Python:
+Compared to raw code that does a similar function:
 
 ```python
 from os import makedirs
@@ -37,5 +34,4 @@ users.add('sue')
 makedirs('data', exist_ok=True)
 with open(join('data', 'users.txt'), 'w') as f:
     f.write('\n'.join(users))
-
 ```

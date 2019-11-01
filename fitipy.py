@@ -1,64 +1,130 @@
+import sys
+from itertools import count
 from os import makedirs
 
-import json
-from os.path import join, isfile, dirname
-from typing import Callable, Any
+import pickle
+from os.path import isfile, join, dirname
+from typing import MutableSet, MutableMapping, MutableSequence
 
 
-class FitiWriter:
-    def __init__(self, *path: str):
+class Fiti:
+    def __init__(self, default_data, *path):
+        self.data = default_data
         self.filename = join(*path)
-        parent = dirname(self.filename)
-        if parent:
-            makedirs(parent, exist_ok=True)
+        self.reload()
 
-    def write(self, value: Any, modifier: Callable = lambda x: x):
-        with open(self.filename, 'w') as f:
-            f.write(modifier(value))
+    @staticmethod
+    def _load(filename):
+        with open(filename, 'rb') as handle:
+            return pickle.load(handle)
 
-    def lines(self, value: list):
-        return self.write(value or [], lambda x: '\n'.join(map(str, x)))
+    @staticmethod
+    def _save(data, filename):
+        try:
+            with open(filename, 'wb') as f:
+                pickle.dump(data, f, protocol=-1)
+        except FileNotFoundError:
+            makedirs(dirname(filename), exist_ok=True)
+            with open(filename, 'wb') as f:
+                pickle.dump(data, f, protocol=-1)
 
-    def set(self, value: set):
-        return self.write(value or set(), lambda x: '\n'.join(map(str, x)))
+    def backup(self):
+        """Creates a copy of the file in a new file named {filename}.bak.n"""
+        filename = ''
+        for i in count():
+            filename = self.filename + '.bak' + ('.' + str(i)) * bool(i)
+            if not isfile(filename):
+                break
+        self._save(self.data, filename)
+        return filename
 
-    def dict(self, value: dict):
-        self.write(value or {}, json.dumps)
+    def reload(self):
+        """Reloads the data from disk"""
+        if isfile(self.filename):
+            try:
+                self.data = self._load(self.filename)
+            except ValueError as e:
+                backup_name = self.backup()
+                print('Warning: Failed to parse file ({}). Moved to {}.'.format(e, backup_name), file=sys.stderr)
 
-    def list(self, value: list):
-        self.write(value or [], json.dumps)
+    def save(self, data=None):
+        """Only necessary to call if you manually change object references inside the data structure"""
+        self._save(self.data if data is None else data, self.filename)
 
+    def __str__(self):
+        return 'Fiti({})'.format(self.data)
 
-class FitiReader:
-    def __init__(self, *path: str):
-        self.filename = join(*path)
+    def __repr__(self):
+        return 'Fiti({!r}, {!r})'.format(self.data, self.filename)
 
-    def read(self, default: Any = '', modifier: Callable = lambda x: x) -> Any:
-        if not isfile(self.filename):
-            return default
-        with open(self.filename) as f:
-            content = f.read()
-        return modifier(content)
-
-    def lines(self, typ: type = str) -> list:
-        return self.read([], lambda x: [typ(i) for i in bool(x) * x.split('\n')])
-
-    def set(self, typ: type = str) -> set:
-        return self.read(set(), lambda x: {typ(i) for i in bool(x) * x.split('\n')})
-
-    def dict(self) -> dict:
-        return self.read({}, json.loads)
-
-    def list(self) -> list:
-        return self.read([], json.loads)
+    def __eq__(self, other):
+        if isinstance(other, Fiti):
+            return self.data == other.data
+        return self.data == other
 
 
-class Fitipy:
+class FSet(Fiti, MutableSet):
     def __init__(self, *path):
-        self.path = join(*path)
+        super().__init__(set(), *path)
 
-    def read(self, *path: str) -> FitiReader:
-        return FitiReader(self.path, *path)
+    def __contains__(self, item):
+        return item in self.data
 
-    def write(self, *path: str) -> FitiWriter:
-        return FitiWriter(self.path, *path)
+    def __iter__(self):
+        return iter(self.data)
+
+    def __len__(self):
+        return len(self.data)
+
+    def add(self, x):
+        self.data.add(x)
+        self.save()
+
+    def discard(self, x):
+        self.data.discard(x)
+        self.save()
+
+
+class FList(Fiti, MutableSequence):
+    def __init__(self, *path):
+        super().__init__(list(), *path)
+
+    def insert(self, index: int, obj):
+        self.data.insert(index, obj)
+        self.save()
+
+    def __setitem__(self, i: int, o):
+        self.data[i] = o
+        self.save()
+
+    def __delitem__(self, i: int) -> None:
+        del self.data[i]
+        self.save()
+
+    def __getitem__(self, i: int):
+        return self.data[i]
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+
+class FDict(Fiti, MutableMapping):
+    def __init__(self, *path):
+        super().__init__(dict(), *path)
+
+    def __getitem__(self, k):
+        return self.data[k]
+
+    def __delitem__(self, key):
+        del self.data[key]
+        self.save()
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+        self.save()
